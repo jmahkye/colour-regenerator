@@ -256,7 +256,7 @@ class ColorGAN:
         self.optimizer_D = torch.optim.Adam(self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Loss weights - balance between adversarial and reconstruction objectives
-        self.lambda_l1 = 100  # High weight ensures color accuracy, typical for pix2pix-style models
+        self.lambda_l1 = 40  # High weight ensures color accuracy, typical for pix2pix-style models
 
     def train_step(self, real_L, real_ab):
         """

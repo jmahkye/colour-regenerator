@@ -5,6 +5,7 @@ import os
 from PIL import Image
 import numpy as np
 from skimage import color
+from pathlib import Path
 import glob
 
 class ColorDataset(Dataset):
@@ -40,21 +41,33 @@ class ColorDataset(Dataset):
         self.image_dir = image_dir
         self.image_size = image_size
 
-        # Search for image files with common extensions
-        # Try different case variations to handle various naming conventions
-        self.image_paths = glob.glob(os.path.join(image_dir, "*.JPEG"))
-        if not self.image_paths:
-            self.image_paths = glob.glob(os.path.join(image_dir, "*.jpeg"))
-        if not self.image_paths:
-            self.image_paths = glob.glob(os.path.join(image_dir, "*.jpg"))
+        # Search recursively for image files with common extensions (case-insensitive)
+        image_dir_path = Path(image_dir)
+        self.image_paths = []
+
+        # Search for common image formats
+        for extension in ['jpg', 'jpeg', 'png', 'bmp', 'tiff']:
+            # Case-insensitive search using rglob
+            self.image_paths.extend([str(p) for p in image_dir_path.rglob(f'*.{extension}')])
+            self.image_paths.extend([str(p) for p in image_dir_path.rglob(f'*.{extension.upper()}')])
+
+        # Remove duplicates
+        self.image_paths = list(set(self.image_paths))
+
+        self.image_paths = self.image_paths[:20000]
 
         print(f"Found {len(self.image_paths)} images in {image_dir}")
+        print(f"  (searched recursively in ALL subdirectories - unlimited depth)")
+
+        if len(self.image_paths) == 0:
+            print(f"WARNING: No images found! Check that {image_dir} contains image files.")
+            print(f"Supported formats: .jpg, .jpeg, .png, .bmp, .tiff (case-insensitive)")
 
         # Image preprocessing transforms
         # Resize to consistent size and convert to tensor for PyTorch
         self.transform = transforms.Compose([
             transforms.Resize((image_size, image_size)),  # Resize to square image
-            transforms.ToTensor()                          # Convert PIL Image to tensor [0,1]
+            transforms.ToTensor()  # Convert PIL Image to tensor [0,1]
         ])
 
     def __len__(self):

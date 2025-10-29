@@ -233,7 +233,7 @@ class Trainer:
                     epoch_losses[key].append(losses[key])
 
                 # Print progress periodically to monitor training
-                if batch_idx % 50 == 0:
+                if batch_idx % 100 == 0:
                     print(f"Epoch {epoch}/{num_epochs} | Batch {batch_idx}/{len(self.dataloader)} | "
                           f"G: {losses['loss_G']:.4f} | D: {losses['loss_D']:.4f} | "
                           f"L1: {losses['loss_G_L1']:.4f}")
@@ -300,9 +300,9 @@ if __name__ == "__main__":
     - CPU: Not recommended (would take days)
     """
     # Training configuration parameters
-    DATA_DIR = "data/imagenet/test/images"  # Directory containing training images
-    BATCH_SIZE = 8                          # Adjust based on GPU memory (8=safe, 16+=high-end)
-    NUM_EPOCHS = 100                        # Number of training epochs
+    DATA_DIR = "data/coco"  # Directory containing training images
+    BATCH_SIZE = 4                          # Adjust based on GPU memory (8=safe, 16+=high-end)
+    NUM_EPOCHS = 10                        # Number of training epochs
     IMAGE_SIZE = 256                        # Input image size (256x256 pixels)
 
     # Initialize the training system
@@ -316,6 +316,6 @@ if __name__ == "__main__":
     # This will create checkpoints, samples, and logs automatically
     trainer.train(
         num_epochs=NUM_EPOCHS,
-        save_every=10,      # Save model every 10 epochs
+        save_every=2,      # Save model every 10 epochs
         sample_every=5      # Generate sample images every 5 epochs
     )
