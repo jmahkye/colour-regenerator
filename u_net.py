@@ -23,37 +23,36 @@ class UNetGenerator(nn.Module):
         Initialize U-Net Generator.
 
         Args:
-            input_channels (int): Number of input channels (1 for grayscale L channel)
+            input_channels (int): Number of input channels (1 for greyscale L channel)
             output_channels (int): Number of output channels (2 for a*b* channels)
         """
         super(UNetGenerator, self).__init__()
-
-        # Encoder (Downsampling path)
         # Each encoder block: Conv -> BatchNorm -> ReLU -> Conv -> BatchNorm -> ReLU
         # Followed by MaxPool to reduce spatial dimensions
-        self.enc1 = self.conv_block(input_channels, 64)  # 256x256x1 -> 256x256x64
-        self.enc2 = self.conv_block(64, 128)             # 128x128x64 -> 128x128x128
-        self.enc3 = self.conv_block(128, 256)            # 64x64x128 -> 64x64x256
-        self.enc4 = self.conv_block(256, 512)            # 32x32x256 -> 32x32x512
+        self.enc1 = self.conv_block(input_channels, 48)  # 256x256x1 -> 256x256x48
+        self.enc2 = self.conv_block(48, 96)  # 128x128x48 -> 128x128x96
+        self.enc3 = self.conv_block(96, 192)  # 64x64x96 -> 64x64x192
+        self.enc4 = self.conv_block(192, 384)  # 32x32x192 -> 32x32x384
 
         # Bottleneck - deepest point of the network
         # Captures high-level semantic information
-        self.bottleneck = self.conv_block(512, 1024)     # 16x16x512 -> 16x16x1024
+        self.bottleneck = self.conv_block(384, 768)  # 16x16x384 -> 16x16x768
 
         # Decoder (Upsampling path)
         # Each decoder block processes upsampled features + skip connection
-        self.dec4 = self.upconv_block(1024, 512)         # 32x32x1024 -> 32x32x512
-        self.dec3 = self.upconv_block(1024, 256)         # 64x64x1024 -> 64x64x256 (1024 = 512 + 512 from skip)
-        self.dec2 = self.upconv_block(512, 128)          # 128x128x512 -> 128x128x128 (512 = 256 + 256 from skip)
-        self.dec1 = self.upconv_block(256, 64)           # 256x256x256 -> 256x256x64 (256 = 128 + 128 from skip)
+        # IMPORTANT: Input channels = output from previous layer AFTER concatenation with skip
+        self.dec4 = self.upconv_block(768, 384)  # 32x32x768 (upsampled bottleneck) -> 32x32x384
+        self.dec3 = self.upconv_block(768, 192)  # 64x64x768 (384+384 from skip) -> 64x64x192
+        self.dec2 = self.upconv_block(384, 96)  # 128x128x384 (192+192 from skip) -> 128x128x96
+        self.dec1 = self.upconv_block(192, 48)  # 256x256x192 (96+96 from skip) -> 256x256x48
 
-        # Final output layer - maps features to color channels
-        # 1x1 convolution to reduce from 128 channels (64 + 64 from skip) to 2 channels (a*b*)
-        self.final = nn.Conv2d(128, output_channels, kernel_size=1)
+        # Final output layer - maps features to colour channels
+        # Input is 96 channels (48 from dec1 + 48 from enc1 skip connection)
+        self.final = nn.Conv2d(96, output_channels, kernel_size=1)
 
         # Pooling and upsampling operations
         self.pool = nn.MaxPool2d(2)  # Reduces spatial dimensions by factor of 2
-        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)  # Increases spatial dimensions by factor of 2
+        self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
     def conv_block(self, in_channels, out_channels):
         """

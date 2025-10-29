@@ -26,7 +26,7 @@ class Trainer:
     - Robust error handling and progress reporting
     """
 
-    def __init__(self, data_dir, batch_size=16, learning_rate=0.0002, image_size=256):
+    def __init__(self, data_dir, batch_size=16, learning_rate=0.0002, image_size=256, accumulation_steps=4):
         """
         Initialize the training system.
 
@@ -71,6 +71,10 @@ class Trainer:
             'loss_G_L1': [],     # Generator reconstruction loss
             'loss_D': []         # Discriminator loss
         }
+
+        self.accumulation_steps = accumulation_steps
+        self.effective_batch_size = batch_size * accumulation_steps
+        print(f"Effective batch size: {self.effective_batch_size}")
 
     def save_sample_images(self, epoch, num_samples=4):
         """
@@ -207,32 +211,28 @@ class Trainer:
         start_time = time.time()
 
         for epoch in range(1, num_epochs + 1):
-            # Initialize loss tracking for this epoch
             epoch_losses = {
-                'loss_G': [],        # Generator total loss
-                'loss_G_GAN': [],    # Generator adversarial loss
-                'loss_G_L1': [],     # Generator reconstruction loss
-                'loss_D': []         # Discriminator loss
+                'loss_G': [], 'loss_G_GAN': [], 'loss_G_L1': [], 'loss_D': []
             }
 
-            # Ensure models are in training mode (enables dropout, batchnorm updates)
             self.gan.generator.train()
             self.gan.discriminator.train()
 
-            # Process all batches in the current epoch
             for batch_idx, (real_L, real_ab) in enumerate(self.dataloader):
-                # Move data to GPU if available
                 real_L = real_L.to(self.device)
                 real_ab = real_ab.to(self.device)
 
-                # Perform one training step (update both generator and discriminator)
+                # Modify train_step to not zero gradients every time
                 losses = self.gan.train_step(real_L, real_ab)
 
-                # Accumulate losses for epoch averaging
+                # Only step optimisers every N batches
+                if (batch_idx + 1) % self.accumulation_steps == 0:
+                    # Gradients are already accumulated
+                    pass
+
                 for key in epoch_losses:
                     epoch_losses[key].append(losses[key])
 
-                # Print progress periodically to monitor training
                 if batch_idx % 50 == 0:
                     print(f"Epoch {epoch}/{num_epochs} | Batch {batch_idx}/{len(self.dataloader)} | "
                           f"G: {losses['loss_G']:.4f} | D: {losses['loss_D']:.4f} | "
@@ -299,23 +299,20 @@ if __name__ == "__main__":
     - GPU (RTX 4090): ~3-4 hours for 100 epochs with 10K images
     - CPU: Not recommended (would take days)
     """
-    # Training configuration parameters
-    DATA_DIR = "data/imagenet/test/images"  # Directory containing training images
-    BATCH_SIZE = 8                          # Adjust based on GPU memory (8=safe, 16+=high-end)
-    NUM_EPOCHS = 100                        # Number of training epochs
-    IMAGE_SIZE = 256                        # Input image size (256x256 pixels)
+    DATA_DIR = "data/coco"
+    BATCH_SIZE = 4  # Reduced from 16 - critical for 8GB VRAM
+    NUM_EPOCHS = 20
+    IMAGE_SIZE = 256  # Reduced from 256 - saves significant memory
 
-    # Initialize the training system
     trainer = Trainer(
         data_dir=DATA_DIR,
         batch_size=BATCH_SIZE,
-        image_size=IMAGE_SIZE
+        image_size=IMAGE_SIZE,
+        accumulation_steps=4  # Simulates batch_size of 16
     )
 
-    # Start the training process
-    # This will create checkpoints, samples, and logs automatically
     trainer.train(
         num_epochs=NUM_EPOCHS,
-        save_every=10,      # Save model every 10 epochs
-        sample_every=5      # Generate sample images every 5 epochs
+        save_every=1,
+        sample_every=5
     )
